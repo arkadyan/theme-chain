@@ -5,6 +5,12 @@ set -q chain_git_branch_glyph
   or set -g chain_git_branch_glyph "⎇"
 set -q chain_git_dirty_glyph
   or set -g chain_git_dirty_glyph "±"
+set -q chain_git_staged_glyph
+  or set -g chain_git_staged_glyph "~"
+set -q chain_git_stashed_glyph
+  or set -g chain_git_stashed_glyph '$'
+set -q chain_git_new_glyph
+  or set -g chain_git_new_glyph "…"
 set -q chain_su_glyph
   or set -g chain_su_glyph "⚡"
 
@@ -19,7 +25,19 @@ function __chain_git_branch_name
 end
 
 function __chain_is_git_dirty
-  echo (command git status -s --ignore-submodules=dirty ^/dev/null)
+  not command git diff --no-ext-diff --quiet --exit-code
+end
+
+function __chain_is_git_staged
+  not command git diff --cached --no-ext-diff --quiet --exit-code
+end
+
+function __chain_is_git_stashed
+  command git rev-parse --verify --quiet refs/stash >/dev/null
+end
+
+function __chain_is_git_new
+  test (echo (command git ls-files --other --exclude-standard --directory --no-empty-directory))
 end
 
 function __chain_prompt_root
@@ -38,8 +56,21 @@ function __chain_prompt_git
     set -l git_branch (__chain_git_branch_name)
     __chain_prompt_segment blue "$chain_git_branch_glyph $git_branch"
 
-    if test (__chain_is_git_dirty)
-      __chain_prompt_segment yellow $chain_git_dirty_glyph
+    set -l glyphs ''
+    __chain_is_git_dirty; and set -l is_git_dirty 1; and set glyphs "$glyphs$chain_git_dirty_glyph"
+    __chain_is_git_staged; and set -l is_git_staged 1; and set glyphs "$glyphs$chain_git_staged_glyph"
+    __chain_is_git_stashed; and set -l is_git_stashed 1; and set glyphs "$glyphs$chain_git_stashed_glyph"
+    __chain_is_git_new; and set -l is_git_new 1; and set glyphs "$glyphs$chain_git_new_glyph"
+
+    set -l color green
+    if test "$is_git_dirty" -o "$is_git_staged"
+      set color red
+    else if test "$is_git_stashed"
+      set color yellow
+    end
+
+    if test -n "$glyphs"
+      __chain_prompt_segment $color $glyphs
     end
   end
 end
