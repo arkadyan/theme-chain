@@ -9,6 +9,12 @@ set -q chain_git_staged_glyph
   or set -g chain_git_staged_glyph "~"
 set -q chain_git_stashed_glyph
   or set -g chain_git_stashed_glyph '$'
+set -q chain_git_behind_glyph
+  or set -g chain_git_behind_glyph '↓'
+set -q chain_git_ahead_glyph
+  or set -g chain_git_ahead_glyph '↑'
+set -q chain_git_behind_and_ahead_glyph
+  or set -g chain_git_behind_and_ahead_glyph '↕'
 set -q chain_git_new_glyph
   or set -g chain_git_new_glyph "…"
 set -q chain_su_glyph
@@ -36,6 +42,26 @@ function __chain_is_git_stashed
   command git rev-parse --verify --quiet refs/stash >/dev/null
 end
 
+function __chain_is_git_behind
+  for line in (command git rev-list --left-right '@{upstream}...HEAD' ^/dev/null)
+    switch "$line"
+      case '<*'
+        return 0
+    end
+  end
+  return 1
+end
+
+function __chain_is_git_ahead
+  for line in (command git rev-list --left-right '@{upstream}...HEAD' ^/dev/null)
+    switch "$line"
+      case '>*'
+        return 0
+    end
+  end
+  return 1
+end
+
 function __chain_is_git_new
   test (echo (command git ls-files --other --exclude-standard --directory --no-empty-directory))
 end
@@ -56,16 +82,26 @@ function __chain_prompt_git
     set -l git_branch (__chain_git_branch_name)
     __chain_prompt_segment blue "$chain_git_branch_glyph $git_branch"
 
+    __chain_is_git_behind; and set -l is_git_behind 1
+    __chain_is_git_ahead; and set -l is_git_ahead 1
+
     set -l glyphs ''
     __chain_is_git_dirty; and set -l is_git_dirty 1; and set glyphs "$glyphs$chain_git_dirty_glyph"
     __chain_is_git_staged; and set -l is_git_staged 1; and set glyphs "$glyphs$chain_git_staged_glyph"
     __chain_is_git_stashed; and set -l is_git_stashed 1; and set glyphs "$glyphs$chain_git_stashed_glyph"
+    if test "$is_git_behind" -a "$is_git_ahead"
+      set glyphs "$glyphs$chain_git_behind_and_ahead_glyph"
+    else if test "$is_git_behind"
+      set glyphs "$glyphs$chain_git_behind_glyph"
+    else if test "$is_git_ahead"
+      set glyphs "$glyphs$chain_git_ahead_glyph"
+    end
     __chain_is_git_new; and set -l is_git_new 1; and set glyphs "$glyphs$chain_git_new_glyph"
 
     set -l color green
     if test "$is_git_dirty" -o "$is_git_staged"
       set color red
-    else if test "$is_git_stashed"
+    else if test "$is_git_stashed" -o "$is_git_behind" -o "$is_git_ahead"
       set color yellow
     end
 
