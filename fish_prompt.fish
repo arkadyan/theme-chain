@@ -73,6 +73,12 @@ function __chain_prompt_root
   end
 end
 
+function __chain_prompt_user_host
+  set -l user (whoami)
+  set -l host (hostname -s)
+  __chain_prompt_segment magenta "$user@$host"
+end
+
 function __chain_prompt_dir
   __chain_prompt_segment cyan (prompt_pwd)
 end
@@ -126,6 +132,7 @@ function fish_prompt
   set -g last_status $status
 
   __chain_prompt_root
+  __chain_prompt_user_host
   __chain_prompt_dir
   type -q git; and __chain_prompt_git
   __chain_prompt_arrow
